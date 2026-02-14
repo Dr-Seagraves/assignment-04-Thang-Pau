@@ -125,7 +125,8 @@ def estimate_regression(df: pd.DataFrame, x_var: str):
     # TODO: Use statsmodels.formula.api.ols to estimate ret ~ x_var
     # Hint: model = ols(f"ret ~ {x_var}", data=df).fit()
     # return model
-    raise NotImplementedError("Implement the regression estimation here")
+    model = ols(f"ret ~ {x_var}", data=df).fit()
+    return model
 
 
 def save_regression_summary(model, output_path: Path) -> None:
@@ -135,7 +136,7 @@ def save_regression_summary(model, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     # TODO: Write str(model.summary()) to the output file
     with open(output_path, "w") as f:
-        pass  # TODO
+        f.write(str(model.summary()))
 
 
 def plot_scatter_with_regression(
@@ -158,7 +159,30 @@ def plot_scatter_with_regression(
     # TODO: Set axis limits to zoom on central data (e.g., percentiles 2–98)
     # TODO: Add title (include R²), xlabel, ylabel="Annual Return", legend
     # TODO: Save with plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    pass  # TODO
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    clean_df = df[[x_var, "ret"]].dropna()
+    ax.scatter(clean_df[x_var], clean_df["ret"], alpha=0.5, label="Data")
+
+    intercept = model.params.get("Intercept", model.params.iloc[0])
+    slope = model.params[x_var]
+    x_min, x_max = clean_df[x_var].quantile([0.02, 0.98]).tolist()
+    x_vals = np.linspace(x_min, x_max, 100)
+    y_vals = intercept + slope * x_vals
+    ax.plot(x_vals, y_vals, color="red", label="Fit")
+
+    y_min, y_max = clean_df["ret"].quantile([0.02, 0.98]).tolist()
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+
+    r_squared = model.rsquared
+    ax.set_title(f"{title} (R² = {r_squared:.3f})")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Annual Return")
+    ax.legend()
+
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def print_key_results(model, x_var: str) -> None:
@@ -171,6 +195,30 @@ def print_key_results(model, x_var: str) -> None:
     # TODO: Print intercept (β₀), slope (β₁), standard errors, t-stats, p-values
     # TODO: Print R², Adj R², N
     # TODO: Print whether slope is positive/negative and significant at 5%
+    intercept = model.params.get("Intercept", model.params.iloc[0])
+    slope = model.params[x_var]
+    se_intercept = model.bse.get("Intercept", model.bse.iloc[0])
+    se_slope = model.bse[x_var]
+    t_intercept = model.tvalues.get("Intercept", model.tvalues.iloc[0])
+    t_slope = model.tvalues[x_var]
+    p_intercept = model.pvalues.get("Intercept", model.pvalues.iloc[0])
+    p_slope = model.pvalues[x_var]
+
+    print(f"Intercept (b0): {intercept:.6f}")
+    print(f"Slope (b1): {slope:.6f}")
+    print(f"SE (b0): {se_intercept:.6f}")
+    print(f"SE (b1): {se_slope:.6f}")
+    print(f"t (b0): {t_intercept:.3f}")
+    print(f"t (b1): {t_slope:.3f}")
+    print(f"p (b0): {p_intercept:.4f}")
+    print(f"p (b1): {p_slope:.4f}")
+    print(f"R^2: {model.rsquared:.4f}")
+    print(f"Adj R^2: {model.rsquared_adj:.4f}")
+    print(f"N: {int(model.nobs)}")
+
+    direction = "positive" if slope > 0 else "negative"
+    significance = "significant" if p_slope < 0.05 else "not significant"
+    print(f"Slope is {direction} and {significance} at 5%.")
     print("=" * 60 + "\n")
 
 
